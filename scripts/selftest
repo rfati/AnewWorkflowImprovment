@@ -525,6 +525,7 @@ done
 # An unreadable sensitive-area declaration fails closed (spec 0006): a line whose text, past
 # leading Markdown, starts with "sensitive area" / "sensitive-area" but does not parse makes the
 # spec sensitive and is named, at ship and in specs/active/.
+reset; put specs/active/0007-later.md '# Spec 0007' '- Status: Draft'   # no ship left over from above
 unr='unreadable sensitive-area declaration:'
 unr_fix='— write "Sensitive area: <name>" or "Sensitive area: none"'
 for decl in '- Sensitive area: Money' '- Sensitive areas: Money, Identity' '- **Sensitive area:** Money' '- Sensitive area — Money' '- Sensitive area:' \
