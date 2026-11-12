@@ -73,10 +73,20 @@ Mode is the `Mode:` line in `AGENTS.md`, set at bootstrap (`workflows/README.md`
   `requires` line (or one naming no step) is a WARN, and each profile then reads `check fails on
   the check.conf errors above` — a conf error to fix, not an environment gap.
   New ships (specs added to `specs/done/` vs the base ref; fail closed — a line with a checkbox
-  followed by an `AC-`/`CB-`/`PB-` id, only punctuation or emphasis between, is a criterion; its
-  first box decides; a box in backticks still counts): an unchecked criterion without
-  `→ moved to B-<n> | spec <NNNN>` (target existing), or any move in a sensitive-area spec, is a
-  gate (tick a proven criterion `[x]`); a spec target must be open (`specs/active/`). A
+  followed by an `AC-`/`CB-`/`PB-` id, only punctuation or emphasis between, is a criterion; the
+  first box followed by an id decides; a box in backticks still counts): an unchecked criterion
+  without `→ moved to B-<n> | spec <NNNN>` (target existing), or any move in a sensitive-area
+  spec, is a gate (tick a proven criterion `[x]`); a spec target must be open (`specs/active/`).
+  Sensitive-area declarations (fail closed): a line whose text, past leading Markdown
+  (whitespace, `>` `#` `|`, emphasis, a backtick, a bullet or number), starts with "sensitive
+  area" or "sensitive-area" is a declaration. It is readable only as `Sensitive area: <value>`
+  — "area", "areas" or "area(s)", optional emphasis, then `:` `—` `–` or `-`, behind at most a
+  bullet or number and emphasis; a value starting with `none` or `n/a` is not sensitive, any
+  other (empty too) is. An unreadable declaration makes the spec sensitive and is a WARN, never
+  a gate by itself: `unreadable sensitive-area declaration: <path>:<line> — write "Sensitive
+  area: <name>" or "Sensitive area: none"`; any sensitive or unreadable line wins over a `none`.
+  doctor reads new ships and `specs/active/[0-9]*.md` (there a WARN only); a spec shipped at the
+  base is not read again. A
   `Self-critique: pending` warns on a Draft — expected until the self-critique is approved — and
   is a gate past approval. Locally the base is HEAD, so only an uncommitted ship is seen; CI on a
   pull request sees every new ship.
