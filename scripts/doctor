@@ -331,6 +331,43 @@ for s in "$ROOT/specs/active/"[0-9]*.md; do
     *) warn "self-critique $sc: specs/active/$(basename "$s")" ;;
   esac
 done
+
+# --- sensitive-area declarations (docs/domain.md, Sensitive areas). A declaration line: past
+# leading Markdown (whitespace, > # | * _ `, a bullet or number) its text starts with
+# "sensitive area" or "sensitive-area". Readable: whitespace, at most one bullet or number, and
+# emphasis before "sensitive area(s)", then : — – or -, then a value; none / n/a (past emphasis,
+# quotes or brackets) = not sensitive, any other value (empty too) = sensitive. Unreadable = the
+# spec is sensitive (fail closed) and a WARN names its line; never a gate by itself. Any
+# sensitive or unreadable line wins over a none. Byte-wise (LC_ALL=C).
+# sens_scan <file> <workspace-relative path> → sets $sensitive (0/1), one WARN per unreadable line.
+sens_scan() {
+  sensitive=0
+  sens_out=$(LC_ALL=C awk '{ l = tolower($0); d = l
+      sub(/^([ \t>#|*_`+-]|[0-9]+[.)])*/, "", d)
+      if (d !~ /^sensitive[ -]area/) next
+      if (l !~ /^[ \t]*([-*+]|[0-9]+[.)])?[ \t]*[*_]*sensitive area/) { print "u " NR; next }
+      r = substr(l, index(l, "sensitive area") + 14)
+      sub(/^(\(s\)|s)/, "", r); sub(/^[*_ \t]*/, "", r)
+      if (r !~ /^(:|—|–|-)/) { print "u " NR; next }
+      sub(/^(:|—|–|-)/, "", r); gsub(/<!--.*-->/, "", r); sub(/^[*_ \t`"'"'"'(\[]*/, "", r)
+      if (r ~ /^(none|n\/a)([^a-z]|$)/) next
+      print "s" }' "$1")
+  while IFS=' ' read -r sens_k sens_n; do   # a here-doc, not a pipe: warn() must count in this shell
+    case "$sens_k" in
+      u) sensitive=1
+         warn "unreadable sensitive-area declaration: $2:$sens_n — write \"Sensitive area: <name>\" or \"Sensitive area: none\"" ;;
+      s) sensitive=1 ;;
+    esac
+  done <<SENS
+$sens_out
+SENS
+}
+# Open specs are read early: a WARN only, no gate (README.md is not a spec; specs/done/ is read
+# only for new ships, below).
+for s in "$ROOT/specs/active/"[0-9]*.md; do
+  [ -f "$s" ] && sens_scan "$s" "specs/active/$(basename "$s")"
+done
+
 dupsrc=$(for s in "$ROOT/specs/active/"[0-9]*.md; do
   [ -f "$s" ] && grep -m1 '^- Source:' "$s" | sed 's/<!--.*-->//g; s/^- Source:[[:space:]]*//; s/[[:space:]]*$//'
 done | grep -v '^$' | sort | uniq -d)
@@ -385,8 +422,8 @@ if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     # specs/active/, not itself); ASCII `->` too; a marker in backticks is quoted text. A sensitive
     # spec moves nothing. Fail closed: a line with a checkbox followed (punctuation or emphasis
     # between) by an AC-/CB-/PB- id is a criterion whatever its bullet; its FIRST box decides, only
-    # [x]/[X] is ticked; a "sensitive area(s)" declaration makes the spec sensitive unless its
-    # value starts with none or n/a.
+    # [x]/[X] is ticked; a sensitive-area declaration (sens_scan) makes the spec sensitive unless
+    # it is readable and its value starts with none or n/a.
     # Bytes, not characters (LC_ALL=C): a spec in another encoding is read as it is. Untracked files
     # count when the base is HEAD (a ship not committed yet). Paths unquoted, workspace-relative. ---
     lc_set=${LC_ALL+set}; lc_old=${LC_ALL-}; LC_ALL=C; export LC_ALL
@@ -400,19 +437,7 @@ $(git -C "$ROOT" -c core.quotePath=false ls-files --others --exclude-standard --
       case "$f" in specs/done/[0-9]*.md) ;; *) continue ;; esac
       [ -f "$ROOT/$f" ] || continue
       self=$(basename "$f" | sed 's/-.*//')
-      # Sensitive: a line that starts (after bullet / emphasis) with "sensitive area(s)" and a
-      # separator (: — -); its value, past emphasis, quotes or brackets, starts with none or n/a,
-      # or the spec is sensitive (an empty value too).
-      sensitive=0
-      awk '{ l = tolower($0)
-             if (l !~ /^[ \t]*([-*+]|[0-9]+[.)])?[ \t]*[*_]*sensitive area/) next
-             r = substr(l, index(l, "sensitive area") + 14)
-             sub(/^(\(s\)|s)/, "", r); sub(/^[*_ \t]*/, "", r)
-             if (r !~ /^(:|—|–|-)/) next
-             sub(/^(:|—|–|-)/, "", r); gsub(/<!--.*-->/, "", r); sub(/^[*_ \t`"'"'"'(\[]*/, "", r)
-             if (r ~ /^(none|n\/a)([^a-z]|$)/) next
-             found = 1 }
-           END { exit found ? 0 : 1 }' "$ROOT/$f" && sensitive=1
+      sens_scan "$ROOT/$f" "$f"   # sets $sensitive; names every unreadable declaration
       # Criterion lines, judged by their FIRST checkbox + id: "<x|o><TAB><id><TAB><line>".
       lines=$(awk '{ if (!match($0, /\[[ xX]?\][^A-Za-z0-9]*(AC|CB|PB)-[0-9]+/)) next
                      m = substr($0, RSTART, RLENGTH); t = (substr(m, 2, 1) ~ /[xX]/) ? "x" : "o"

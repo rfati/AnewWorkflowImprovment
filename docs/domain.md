@@ -21,4 +21,8 @@
      data). A spec that touches one says so in Constraints (`Sensitive area: <name>`); there the
      clarify gate is asked in lite too, every fix round but a documents-only one is
      re-reviewed, and every criterion is proven red by one deliberate break
-     (workflows/README.md, Modes). "None" is a valid answer. -->
+     (workflows/README.md, Modes). "None" is a valid answer.
+     doctor reads only `Sensitive area: <name>` or `Sensitive area: none`, with the label in
+     English (a protocol field, docs/conventions.md), and fails closed on anything else: a line
+     that starts like a declaration but does not read as one makes the spec sensitive and is
+     named (docs/commands.md, doctor). -->

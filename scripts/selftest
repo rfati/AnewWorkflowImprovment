@@ -514,7 +514,7 @@ doctor;            has "unchecked criterion in a new ship: specs/done/0034-first
 has "unchecked criterion in a new ship: specs/done/0034-first.md AC-3 —" "… nor in backticks";  hasnt "0034-first.md AC-9" "the first box and id decide (a ticked line is not judged by a later box)"
 hasnt "0034-first.md AC-1" "… and the id is the first one on the line"
 put specs/active/0007-later.md '# Spec 0007' '- Status: Draft'
-for decl in '- Sensitive area(s): none' '- Sensitive area — none' '- Sensitive area: `none`' '- Sensitive area: (none)' 'Sensitive areas are not touched by this change.'; do
+for decl in '- Sensitive area(s): none' '- Sensitive area — none' '- Sensitive area: `none`' '- Sensitive area: (none)'; do
   put specs/done/0034-first.md '# Spec 0034' '- Status: Shipped' "$decl" '- [ ] AC-1 — c → moved to spec 0007'
   doctor;          hasnt "0034-first.md" "'$decl' does not make the spec sensitive"
 done
@@ -522,6 +522,53 @@ for decl in '- Sensitive area:' '1) Sensitive area: payments' '- Sensitive area:
   put specs/done/0034-first.md '# Spec 0034' '- Status: Shipped' "$decl" '- [ ] AC-1 — c → moved to spec 0007'
   doctor;          has "a sensitive-area criterion cannot be moved out: specs/done/0034-first.md AC-1" "'$decl' makes the spec sensitive (fail closed)"
 done
+# An unreadable sensitive-area declaration fails closed (spec 0006): a line whose text, past
+# leading Markdown, starts with "sensitive area" / "sensitive-area" but does not parse makes the
+# spec sensitive and is named, at ship and in specs/active/.
+reset; put specs/active/0007-later.md '# Spec 0007' '- Status: Draft'   # no ship left over from above
+unr='unreadable sensitive-area declaration:'
+unr_fix='— write "Sensitive area: <name>" or "Sensitive area: none"'
+for decl in '- Sensitive area: Money' '- Sensitive areas: Money, Identity' '- **Sensitive area:** Money' '- Sensitive area — Money' '- Sensitive area:' \
+            '* Sensitive area: payments' '__Sensitive areas__: payments' '1) Sensitive area: payments' '- Sensitive area: nonexistent-flag'; do
+  put specs/done/0036-sens.md '# Spec 0036' '- Status: Shipped' "$decl" '- [ ] AC-1 — c → moved to spec 0007'
+  doctor;          has "a sensitive-area criterion cannot be moved out: specs/done/0036-sens.md AC-1" "readable '$decl' keeps its verdict: sensitive"
+  hasnt "$unr" "… and '$decl' is not reported unreadable"
+done
+for decl in '- Sensitive area: none' '- Sensitive area: n/a'; do
+  put specs/done/0036-sens.md '# Spec 0036' '- Status: Shipped' "$decl" '- [ ] AC-1 — c → moved to spec 0007'
+  doctor;          hasnt "0036-sens.md" "readable '$decl' keeps its verdict: not sensitive, not reported unreadable"
+done
+for decl in 'Sensitive area (s): x' 'Sensitive areas touched: x' 'Sensitive area → x' '## Sensitive area: x' '> Sensitive area: x' \
+            '| Sensitive area | x |' '- Sensitive-area: x' '- Sensitive area (x)' '- Sensitive area x' '`Sensitive area: x`'; do
+  put specs/done/0036-sens.md '# Spec 0036' '- Status: Shipped' "$decl" '- [ ] AC-1 — c → moved to spec 0007'
+  doctor --strict; exits 1 "unreadable '$decl' with a moved-out criterion under --strict"
+  has "FAIL  a sensitive-area criterion cannot be moved out: specs/done/0036-sens.md AC-1" "… unreadable '$decl' makes the spec sensitive (fail closed)"
+  has "$unr specs/done/0036-sens.md:3 $unr_fix" "… and is named with its path and line"
+done
+put specs/done/0036-sens.md '# Spec 0036' '- Status: Shipped' '## Sensitive area: x' '> Sensitive area: y' '- [x] AC-1 — proven'
+doctor --strict;   exits 0 "unreadable declarations without a moved-out criterion only warn under --strict"
+has "$unr specs/done/0036-sens.md:3 " "… one warning for the first unreadable line"
+has "$unr specs/done/0036-sens.md:4 " "… and one for the second"
+put specs/done/0036-sens.md '# Spec 0036' '- Status: Shipped' '- Sensitive area: none' '| Sensitive area | Money |' '- [ ] AC-1 — c → moved to spec 0007'
+doctor;            has "a sensitive-area criterion cannot be moved out: specs/done/0036-sens.md AC-1" "'none' on one line does not cancel an unreadable one"
+put specs/done/0036-sens.md '# Spec 0036' '- Status: Shipped' 'Sensitive areas are not touched by this change.' '- [ ] AC-1 — c → moved to spec 0007'
+doctor;            has "a sensitive-area criterion cannot be moved out: specs/done/0036-sens.md AC-1" "prose starting 'Sensitive areas are …' is an unreadable declaration (spec 0006, Req. 6)"
+has "$unr specs/done/0036-sens.md:3 $unr_fix" "… and the warning says how to rewrite it"
+put specs/done/0036-sens.md '# Spec 0036' '- Status: Shipped' 'Money is handled elsewhere.' '- [ ] AC-1 — c → moved to spec 0007'
+doctor;            hasnt "0036-sens.md" "a spec with no declaration line: no new warning, no gate"
+rm -f "$W/specs/done/0036-sens.md"
+put specs/active/0041-draft.md '# Spec 0041' '- Status: Draft' 'Money is handled elsewhere.'
+doctor --strict;   rc_without=$rc; hasnt "$unr" "an open spec with no declaration line is not reported"
+put specs/active/0041-draft.md '# Spec 0041' '- Status: Draft' '> Sensitive area: Money'
+doctor --strict;   has "$unr specs/active/0041-draft.md:3 $unr_fix" "an unreadable declaration in specs/active/ is named early"
+[ "$rc" -eq "$rc_without" ]; report $? "… a warning only: doctor's exit code is the same as without the line"
+hasnt "cannot be moved out: specs/active/" "… and no gate"
+rm -f "$W/specs/active/0041-draft.md"
+printf '%s\n' '## Sensitive area: x' >> "$W/specs/active/README.md"
+doctor;            hasnt "$unr" "specs/active/README.md is not a spec"
+reset; put specs/done/0042-old.md '# Spec 0042' '- Status: Shipped' '## Sensitive area: x' '- [x] AC-1 — proven'; commit "ship 0042"
+doctor;            hasnt "$unr" "a spec shipped at the base is not read again"
+reset; put specs/active/0007-later.md '# Spec 0007' '- Status: Draft'
 put specs/backlog.md '# Backlog' '- **B-3** — x'
 put specs/done/0034-first.md '# Spec 0034' '- Status: Shipped' '- [ ] ~~AC-1 — c~~ → moved to B-3'
 doctor;            hasnt "0034-first.md" "a struck id is cut at its closing ~~, the marker after it counts"
