@@ -1,6 +1,6 @@
 # Spec 0006 — doctor: an unreadable sensitive-area declaration fails closed (B-4)
 
-- Status: Approved
+- Status: In progress
 - Mode: lite (ANEW's own development)
 - Plan: `.anew-dev/plans/0006-plan.md`
 - Self-critique: done (G-7…G-14 folded in, approved by RifatISLER, 2026-11-12)
