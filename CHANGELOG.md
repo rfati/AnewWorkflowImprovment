@@ -34,6 +34,40 @@ the core is Markdown plus a few POSIX scripts, so upgrades are file edits, not m
    ADRs are never renumbered.
 6. Write the new version into `.anew-version`.
 
+## v1.25 — An unreadable sensitive-area declaration fails closed
+
+doctor reads a spec's `Sensitive area:` line to refuse moving a sensitive criterion out at ship.
+It read only a few spellings and treated every other one as "not sensitive": `## Sensitive area:
+x`, `> Sensitive area: x`, `- Sensitive-area: x` and six more let a sensitive criterion be moved
+out with CI green. Now a declaration doctor cannot read makes the spec sensitive and is named,
+at ship and while the spec is still open. No invariant rule changes.
+
+- **One form, fail closed.** `Sensitive area: <name>` / `Sensitive area: none` (English label)
+  read as before. A line that starts like a declaration but does not read as one makes the spec
+  sensitive and gets `WARN unreadable sensitive-area declaration: <path>:<line> — write
+  "Sensitive area: <name>" or "Sensitive area: none"`. Any sensitive or unreadable line wins over
+  a `none`.
+- **Earlier signal.** The same WARN for specs in `specs/active/` — a warning only, no gate.
+- **One changed verdict.** Prose starting "Sensitive areas are …" now counts as an unreadable
+  declaration (sensitive); rewrite it as `Sensitive area: none`.
+
+### Upgrading
+
+- `scripts/doctor`: behavior: a line whose text, past leading Markdown (whitespace, `>` `#` `|`,
+  emphasis, a backtick, a bullet or number), starts with "sensitive area" or "sensitive-area" is
+  a sensitive-area declaration; readable = at most a bullet or number and emphasis before
+  "sensitive area(s)", then `:` `—` `–` `-` and a value (`none`/`n/a` = not sensitive, anything
+  else = sensitive); unreadable = sensitive + one WARN per line naming `<path>:<line>`; read for
+  new ships and for `specs/active/[0-9]*.md` (WARN only), never for specs shipped at the base.
+- `scripts/selftest`: behavior: asserts each readable and unreadable spelling both ways; the
+  assertion that "Sensitive areas are not touched …" is not sensitive is replaced by its opposite.
+- `docs/commands.md`: intent: doctor's declaration rules and its WARN; "the first box followed
+  by an id decides". `docs/domain.md`: intent: doctor reads only the English `Sensitive area:`
+  form and fails closed on anything else.
+- Your specs: run `./scripts/doctor`; rewrite each line it names as `Sensitive area: <name>` or
+  `Sensitive area: none`.
+- Full diff: `/compare/v1.24.1...v1.25`.
+
 ## v1.24.1 — v1.24 is the first LTS line
 
 Organizations adopting ANEW need one version to train on and build on while new work continues.
